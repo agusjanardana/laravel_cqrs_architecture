@@ -4,19 +4,32 @@ namespace App\Kafka;
 
 
 use Junges\Kafka\Facades\Kafka;
+use Junges\Kafka\Message\Message;
+
 
 
 class Producer {
 
     public function CreateOrder($data){
 
-        $producer = Kafka::publishOn( 'topic', 'broker',)
-            ->withConfigOptions(['key' => 'value'])
-            ->withKafkaKey('your-kafka-key')
-            ->withKafkaKey('kafka-key')
-            ->withHeaders(['header-key' => 'header-value']);
+        try{
 
-        $producer->send();
+            // publishOn
+            $producer = Kafka::publishOn('order_history')
+                ->withBodyKey('data', $data)
+                ->withKafkaKey($data['order_id'])
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Content-Length' => strlen(json_encode($data))
+                ]);
+
+            $producer->send();
+
+            return "success publish kafka";
+        } catch(\Exception $e){
+            dd($e);
+            return "error publish kafka";
+        }
 
     }
 }

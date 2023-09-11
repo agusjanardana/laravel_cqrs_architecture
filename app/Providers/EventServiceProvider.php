@@ -7,7 +7,10 @@ use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Event;
 use App\Events\OrderProduct;
+use App\Events\Product;
+
 use App\Listeners\CreateOrderProduct;
+use App\Listeners\CreateProduct;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -22,7 +25,10 @@ class EventServiceProvider extends ServiceProvider
         ],
         OrderProduct::class => [
             CreateOrderProduct::class,
-        ]
+        ],
+        Product::class => [
+            CreateProduct::class,
+        ],
     ];
 
     /**

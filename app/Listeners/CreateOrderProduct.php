@@ -8,6 +8,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use App\Kafka\Producer;
 use Illuminate\Support\Facades\DB;
 use App\Models\Product;
+use Throwable;
 
 class CreateOrderProduct
 {
@@ -27,22 +28,46 @@ class CreateOrderProduct
     public function handle(object $event): void
     {
         //
-        $data = $event->dataProduct;
+        $data = $event->dataProductRequest;
+        // transaction
+        try{
+            DB::connection('command')->beginTransaction();
 
-        // add to order history table with kafka query
-        $this->kafka->CreateOrder($data);
+            // update stock quantity table Product
+            $dataProduct = Product::where('id', $data['product_id'])->first();
 
-        // add to table order
-        $saveData = DB::table('orders')->insert([
-            'product_id' => $data->product_id,
-            'username' => "contoh_user",
-            'quantity' => $data->quantity,
-            'total_price' => $data->total_price,
-        ]);
+            // add to table order
+            $orderData = DB::connection('command')->table('orders')->insertGetId([
+                'product_id' => $data['product_id'],
+                'username' => "contoh_user",
+                'quantity' => $data['quantity'],
+                'total_price' => $data['quantity'] * $dataProduct->price,
+            ]);
 
-        // update stock quantity table Product
-        $dataProduct = Product::where('id', $data->product_id)->first();
-        $dataProduct->quantity -= $data->quantity;
-        $dataProduct->save();
+
+            $dataProduct->stock -= $data['quantity'];
+            $dataProduct->save();
+
+            // add to order history table with kafka query
+            $dataToKafkaOrderHistory = [
+                'product_id' => $data['product_id'],
+                'order_id' => $orderData,
+                'username' => "contoh_user",
+            ];
+
+            $kafkaPublish = $this->kafka->CreateOrder($dataToKafkaOrderHistory);
+            if ($kafkaPublish == "error publish kafka") {
+                DB::connection('command')->rollback();
+                return;
+            }
+
+            DB::connection('command')->commit();
+
+        } catch(\Exception $e){
+            dd($e);
+            DB::connection('command')->rollback();
+            return;
+        }
+
     }
 }
